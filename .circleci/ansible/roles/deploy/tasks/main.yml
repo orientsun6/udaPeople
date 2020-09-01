@@ -1,0 +1,25 @@
+---
+- name: "upgrade packages."
+  become: true
+  apt:
+    upgrade: "yes"
+
+- name: "install dependencies."
+  become: true
+  apt:
+    name: ["nodejs", "npm"]
+    state: latest
+    update_cache: yes
+
+- name: "Copy and extract dist files"
+  unarchive:
+    src: files/backend_artifact.tar.gz
+    dest: ./dist
+
+- name: Delete old pm2 process
+  command: pm2 delete ws-node
+  ignore_errors: yes
+
+- name: Executing node
+  shell: |
+    pm2 start ./dist/main.js -f
