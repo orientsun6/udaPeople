@@ -10,9 +10,10 @@ commands:
           name: Destroy environment
           command: |
             aws s3 rm "s3://udapeople-${CIRCLE_WORKFLOW_ID}" --recursive
+            aws cloudformation delete-stack --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID}"
             aws cloudformation delete-stack --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID}"
-          # curl -H "Content-Type: text/plain" -H "token: c763c115-49d9-47a8-897a-33315f7bdc6b" --request PUT --data "" https://api.memstash.io/values/url_${CIRCLE_WORKFLOW_ID}
-          # curl -H "Content-Type: text/plain" -H "token: c763c115-49d9-47a8-897a-33315f7bdc6b" --request PUT --data "" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID}
+            curl -H "Content-Type: text/plain" -H "token: c763c115-49d9-47a8-897a-33315f7bdc6b" --request PUT --data "" https://api.memstash.io/values/url_${CIRCLE_WORKFLOW_ID}
+            curl -H "Content-Type: text/plain" -H "token: c763c115-49d9-47a8-897a-33315f7bdc6b" --request PUT --data "" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID}
           when: on_fail
 
   revert-migration:
@@ -262,7 +263,8 @@ jobs:
             --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID}" \
             --query 'Reservations[*].Instances[*].PublicIpAddress' \
             --output text)
-            curl "http://${BACKEND_IP}:3030/api/status"
+            echo "${BACKEND_IP}"
+          # curl "http://${BACKEND_IP}:3030/api/status"
       - run:
           name: Smoke test backend
           command: |
@@ -298,39 +300,45 @@ jobs:
             export STACKS=$(aws cloudformation list-stacks --query "StackSummaries[*].StackName" \
               --stack-status-filter CREATE_COMPLETE --no-paginate --output text)
             echo Old Workflow Id: "$OldWorkflowID"
+            echo "$STACKS[*]"
             aws cloudformation deploy \
               --template-file .circleci/files/cloudfront.yml \
               --stack-name udapeople-cloudfront \
               --parameter-overrides WorkflowID="${CIRCLE_WORKFLOW_ID}" \
-              --tags project=udapeople &
-            if [[ "$STACKS[@]" =~ "$OldWorkflowID" ]]
+              --tags project=udapeople 
+      - run:
+          name: Clean up old resources
+          command: |
+            if  [ test -n "$OldWorkflowID" ] && [ echo "$STACKS[*]" | grep -Eq "$OldWorkflowID" ]
             then
+              echo "$OldWorkflowID"
               aws s3 rm "s3://udapeople-${OldWorkflowID}" --recursive
               aws cloudformation delete-stack --stack-name "udapeople-backend-${OldWorkflowID}"
               aws cloudformation delete-stack --stack-name "udapeople-frontend-${OldWorkflowID}"
             fi
-      - destroy-environment
-      - revert-migration
+      # - destroy-environment
+      # - revert-migration
+
             
 workflows:
   default:
     jobs:
-      - build-frontend
-      - build-backend
-      - test-frontend:
-          requires: [build-frontend]
-      - test-backend:
-          requires: [build-backend]
-      - scan-frontend:
-          requires: [build-frontend]
-      - scan-backend:
-          requires: [build-backend]
-      - deploy-infrastructure:
-         requires: [test-frontend, test-backend, scan-frontend, scan-backend]
-          filters:
-            branches:
-              only:
-                - master
+      # - build-frontend
+      # - build-backend
+      # - test-frontend:
+      #     requires: [build-frontend]
+      # - test-backend:
+      #     requires: [build-backend]
+      # - scan-frontend:
+      #     requires: [build-frontend]
+      # - scan-backend:
+      #     requires: [build-backend]
+      - deploy-infrastructure
+        #  requires: [test-frontend, test-backend, scan-frontend, scan-backend]
+            # filters:
+            # branches:
+            #   only:
+            #     - master
       - configure-infrastructure:
           requires: [deploy-infrastructure]
       - run-migrations:
